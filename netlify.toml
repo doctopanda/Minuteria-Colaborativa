@@ -1,0 +1,11 @@
+[build]
+  # No hay un comando de compilación, ya que es un sitio estático
+  command = ""
+  # El directorio a publicar es la raíz del proyecto
+  publish = "/"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+

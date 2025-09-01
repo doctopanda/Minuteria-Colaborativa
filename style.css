@@ -1,3 +1,12 @@
+/* Solución para el parpadeo del código: la página empieza invisible y aparece con un fundido */
+body { 
+    opacity: 0;
+    transition: opacity 0.4s ease-in-out;
+}
+body.loaded {
+    opacity: 1;
+}
+
 .cursor {
     position: absolute;
     pointer-events: none;

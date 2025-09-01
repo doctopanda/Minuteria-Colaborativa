@@ -1,37 +1,58 @@
 # Minutería Colaborativa con Transcripción
 
-Una aplicación web para crear minutas colaborativas en tiempo real con transcripción de voz.
-
-## Características
-
-- Edición colaborativa en tiempo real
-- Seguimiento de cursores de otros usuarios
-- Transcripción de voz a texto
-- Gestión de acciones pendientes
-- Generación de códigos QR para invitar participantes
-- Grabación de audio
-
-## Tecnologías Utilizadas
-
-- React 18
-- Supabase (Backend as a Service)
-- Tailwind CSS (Estilos)
-- Web Speech API (Transcripción de voz)
-- QR Code Styling (Generación de códigos QR)
-
-## Configuración para Despliegue en Netlify
-
-1. Clona o descarga este repositorio
-2. Conecta tu repositorio a Netlify
-3. Asegúrate de que el directorio de publicación sea el raíz (`.`)
-4. No se necesitan comandos de build ya que es una aplicación cliente
-
 ## Configuración de Supabase
 
-La aplicación requiere una instancia de Supabase configurada:
+Sigue estos pasos para configurar tu propia instancia de Supabase:
 
-1. Crea una cuenta en [Supabase](https://supabase.com)
-2. Crea un nuevo proyecto
-3. Configura las siguientes tablas:
+1. **Crear una cuenta en Supabase**:
+   - Ve a [https://supabase.com](https://supabase.com) y crea una cuenta
 
-### Tabla: documents
+2. **Crear un nuevo proyecto**:
+   - Haz clic en "New Project"
+   - Completa los detalles del proyecto (nombre, contraseña de base de datos, etc.)
+   - Espera a que se complete el aprovisionamiento
+
+3. **Obtener las credenciales**:
+   - Ve a Settings → API
+   - Encuentra la URL del proyecto en "Configuración"
+   - Encuentra la clave anónima pública en "Claves API"
+
+4. **Configurar la aplicación**:
+   - Abre el archivo `config.js`
+   - Reemplaza `https://tu-proyecto.supabase.co` con tu URL de Supabase
+   - Reemplaza `tu-clave-anon-publica` con tu clave anónima pública
+
+5. **Configurar la base de datos**:
+   - Ve a SQL Editor en Supabase
+   - Ejecuta los siguientes queries para crear las tablas necesarias:
+
+```sql
+-- Tabla: documents
+CREATE TABLE documents (
+  id TEXT PRIMARY KEY,
+  content TEXT,
+  owner_id UUID,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Tabla: actions
+CREATE TABLE actions (
+  id BIGSERIAL PRIMARY KEY,
+  text TEXT,
+  responsible TEXT,
+  deadline DATE,
+  user_id UUID,
+  doc_id TEXT REFERENCES documents(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Tabla: participants
+CREATE TABLE participants (
+  id BIGSERIAL PRIMARY KEY,
+  full_name TEXT,
+  position TEXT,
+  user_id UUID,
+  doc_id TEXT REFERENCES documents(id),
+  ordering INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

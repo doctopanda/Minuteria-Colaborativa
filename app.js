@@ -7,7 +7,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 let supabaseClient;
 try {
-    if (supabaseUrl && supabaseKey && supabaseUrl !== 'https://tu-proyecto.supabase.co') {
+    if (supabaseUrl && supabaseKey && supabaseUrl !== 'https://genidguluqumknwtoqfm.supabase.co') {
          supabaseClient = createClient(supabaseUrl, supabaseKey);
     }
 } catch (error) {

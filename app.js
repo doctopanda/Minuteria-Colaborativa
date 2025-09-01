@@ -3,7 +3,7 @@ const { createClient } = supabase;
 
 // --- Configuración de Supabase ---
 const supabaseUrl = 'https://genidguluqumknwtoqfm.supabase.co'; 
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlbmlkZ3VsdXF1bWtud3RvcWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MjY2MTQsImV4cCI6MjA2ODEwMjYxNH0.GNG_V-rkQWamqqyX4T1tWoh1hLEac_nJv40JX5o63WY';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhbmFzZSIsInJlZiI6ImdlbmlkZ3VsdXF1bWtud3RvcWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MjY2MTQsImV4cCI6MjA2ODEwMjYxNH0.GNG_V-rkQWamqqyX4T1tWoh1hLEac_nJv40JX5o63WY';
 
 let supabaseClient;
 try {
@@ -52,17 +52,19 @@ function Notification({ message, type, onClear }) {
 
 function NamePicker({ onNameSet }) {
     const [name, setName] = useState('');
+    const [position, setPosition] = useState('');
     const colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFA1'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
-    const handleSubmit = (e) => { e.preventDefault(); if (name.trim()) { onNameSet(name.trim(), randomColor); } };
+    const handleSubmit = (e) => { e.preventDefault(); if (name.trim() && position.trim()) { onNameSet(name.trim(), position.trim(), randomColor); } };
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-8 text-center">
+            <div className="bg-white rounded-lg shadow-xl p-8 text-center w-full max-w-sm">
                 <h2 className="text-2xl font-bold mb-4">¡Bienvenido/a!</h2>
-                <p className="text-slate-600 mb-6">Elige un nombre para identificarte en la sesión.</p>
-                <form onSubmit={handleSubmit}>
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre..." className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500" required />
-                    <button type="submit" className="w-full mt-4 bg-blue-600 text-white font-bold py-3 rounded-md hover:bg-blue-700 transition">Unirse a la sesión</button>
+                <p className="text-slate-600 mb-6">Identifícate para unirte a la sesión.</p>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre completo..." className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500" required />
+                     <input type="text" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Tu puesto o cargo..." className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500" required />
+                    <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-md hover:bg-blue-700 transition">Unirse a la sesión</button>
                 </form>
             </div>
         </div>
@@ -95,11 +97,7 @@ function QRCodeModal({ sessionId, onClose }) {
         }
     }, [url]);
     
-    const handleDownload = () => {
-        if (qrCodeInstance.current) {
-            qrCodeInstance.current.download({ name: "minuta-qr", extension: "png" });
-        }
-    };
+    const handleDownload = () => { if (qrCodeInstance.current) { qrCodeInstance.current.download({ name: "minuta-qr", extension: "png" }); } };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={onClose}>
@@ -127,17 +125,12 @@ function MeetingRoom({ sessionId, session, userInfo }) {
     const [isOwner, setIsOwner] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
     
-    const [newActionText, setNewActionText] = useState('');
-    const [newActionResponsible, setNewActionResponsible] = useState('');
-    const [newActionDeadline, setNewActionDeadline] = useState('');
-    const [newParticipantName, setNewParticipantName] = useState('');
-    const [newParticipantPosition, setNewParticipantPosition] = useState('');
-
     const editorRef = useRef(null);
     const channelRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const recognitionRef = useRef(null);
+    const lastTranscriptTime = useRef(Date.now());
 
     const showNotification = (message, type = 'success') => { setNotification({ message, type }); };
 
@@ -145,15 +138,22 @@ function MeetingRoom({ sessionId, session, userInfo }) {
         if (!session || !userInfo || !supabaseClient) return;
 
         const channel = supabaseClient.channel(`room-${sessionId}`, { config: { presence: { key: userInfo.name } } });
+        
         channel.on('presence', { event: 'sync' }, () => {
             const presenceState = channel.presenceState();
             const activeUsers = {};
             for (const key in presenceState) { activeUsers[key] = presenceState[key][0]; }
             setUsers(activeUsers);
         });
+
         channel.on('broadcast', { event: 'cursor' }, ({ payload }) => {
             setUsers(prev => ({ ...prev, [payload.name]: { ...prev[payload.name], position: payload.position } }));
         });
+
+        channel.on('broadcast', { event: 'transcription' }, ({ payload }) => {
+            setContent(prev => prev + payload.transcript);
+        });
+
         channel.subscribe(async (status) => { if (status === 'SUBSCRIBED') { await channel.track(userInfo); } });
         channelRef.current = channel;
         return () => { channel.unsubscribe(); };
@@ -162,67 +162,50 @@ function MeetingRoom({ sessionId, session, userInfo }) {
     useEffect(() => {
         if (!supabaseClient || !session) return;
         
-        const fetchDoc = async () => {
-            const { data } = await supabaseClient.from('documents').select('*').eq('id', sessionId).single();
-            if (data) {
-                setContent(data.content || '');
-                setIsOwner(data.owner_id === session.user.id);
+        const fetchInitialData = async () => {
+            const { data: docData } = await supabaseClient.from('documents').select('*').eq('id', sessionId).single();
+            if (docData) {
+                setContent(docData.content || '');
+                setIsOwner(docData.owner_id === session.user.id);
             }
+            
+            const { data: actionsData } = await supabaseClient.from('actions').select('*').eq('doc_id', sessionId);
+            if (actionsData) setActions(actionsData);
+            
+            const { data: participantsData } = await supabaseClient.from('participants').select('*').eq('doc_id', sessionId).order('ordering', { ascending: true });
+            if (participantsData) setParticipants(participantsData);
         };
-        fetchDoc();
+        fetchInitialData();
 
-        const subscription = supabaseClient.channel(`documents-${sessionId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'documents', filter: `id=eq.${sessionId}` }, payload => {
-                setContent(payload.new.content);
-            }).subscribe();
-        return () => { subscription.unsubscribe(); };
+        const docSubscription = supabaseClient.channel(`documents-${sessionId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'documents', filter: `id=eq.${sessionId}` }, payload => { setContent(payload.new.content); }).subscribe();
+        const actionsSubscription = supabaseClient.channel(`actions-${sessionId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'actions', filter: `doc_id=eq.${sessionId}` }, async () => { const { data } = await supabaseClient.from('actions').select('*').eq('doc_id', sessionId); if (data) setActions(data); }).subscribe();
+        const participantsSubscription = supabaseClient.channel(`participants-${sessionId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'participants', filter: `doc_id=eq.${sessionId}` }, async () => { const { data } = await supabaseClient.from('participants').select('*').eq('doc_id', sessionId).order('ordering', { ascending: true }); if (data) setParticipants(data); }).subscribe();
+
+        return () => {
+            docSubscription.unsubscribe();
+            actionsSubscription.unsubscribe();
+            participantsSubscription.unsubscribe();
+        };
     }, [sessionId, session]);
-    
-    useEffect(() => {
-        if (!supabaseClient) return;
-        const fetchActions = async () => {
-            const { data } = await supabaseClient.from('actions').select('*').eq('doc_id', sessionId);
-            if (data) setActions(data);
-        };
-        fetchActions();
 
-        const subscription = supabaseClient.channel(`actions-${sessionId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'actions', filter: `doc_id=eq.${sessionId}` }, payload => {
-                if (payload.eventType === 'INSERT') {
-                    setActions(current => {
-                        if (current.some(a => a.id === payload.new.id)) return current;
-                        return [...current, payload.new];
+     // Auto-register participant
+    useEffect(() => {
+        if(session && userInfo.name && userInfo.position && sessionId) {
+            const addParticipantToDb = async () => {
+                // Check if user is already a participant to avoid duplicates
+                 const { data, count } = await supabaseClient.from('participants').select('*', { count: 'exact' }).eq('doc_id', sessionId).eq('user_id', session.user.id);
+                if (count === 0) {
+                    await supabaseClient.from('participants').insert({
+                        doc_id: sessionId,
+                        user_id: session.user.id,
+                        full_name: userInfo.name,
+                        position: userInfo.position,
                     });
                 }
-                if (payload.eventType === 'DELETE') {
-                    setActions(current => current.filter(a => a.id !== payload.old.id));
-                }
-            }).subscribe();
-        return () => { subscription.unsubscribe(); };
-    }, [sessionId]);
-    
-    useEffect(() => {
-        if (!supabaseClient) return;
-        const fetchParticipants = async () => {
-            const { data } = await supabaseClient.from('participants').select('*').eq('doc_id', sessionId);
-            if (data) setParticipants(data);
-        };
-        fetchParticipants();
-
-        const subscription = supabaseClient.channel(`participants-${sessionId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'participants', filter: `doc_id=eq.${sessionId}` }, payload => {
-                if (payload.eventType === 'INSERT') {
-                    setParticipants(current => {
-                        if (current.some(p => p.id === payload.new.id)) return current;
-                        return [...current, payload.new];
-                    });
-                }
-                if (payload.eventType === 'DELETE') {
-                    setParticipants(current => current.filter(p => p.id !== payload.old.id));
-                }
-            }).subscribe();
-        return () => { subscription.unsubscribe(); };
-    }, [sessionId]);
+            };
+            addParticipantToDb();
+        }
+    }, [session, userInfo, sessionId]);
 
     const handleContentChange = async (newContent) => {
         setContent(newContent);
@@ -230,135 +213,130 @@ function MeetingRoom({ sessionId, session, userInfo }) {
              await supabaseClient.from('documents').update({ content: newContent }).eq('id', sessionId);
         }
     };
-
+    
     const handleMouseMove = (e) => {
         if (!userInfo || !editorRef.current || !channelRef.current) return;
         const rect = editorRef.current.getBoundingClientRect();
         const position = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         channelRef.current.send({ type: 'broadcast', event: 'cursor', payload: { name: userInfo.name, position } });
     };
+
+    const addAction = async (newAction) => {
+        if (isOwner) {
+            const { error } = await supabaseClient.from('actions').insert(newAction);
+            if (error) showNotification("No se pudo añadir la acción.", "error");
+            else showNotification("Acción añadida.");
+        }
+    };
     
-    const addAction = async () => {
-        if (newActionText.trim() && session && isOwner) {
-            const newAction = { text: newActionText, responsible: newActionResponsible, deadline: newActionDeadline, user_id: session.user.id, doc_id: sessionId };
-            const { data, error } = await supabaseClient.from('actions').insert(newAction).select();
-            if (error) {
-                console.error("Error adding action:", error);
-                showNotification("No se pudo añadir la acción. Revisa los permisos de la tabla.", "error");
-            } else if (data) {
-                setActions(current => [...current, data[0]]);
-                setNewActionText(''); setNewActionResponsible(''); setNewActionDeadline('');
-                showNotification("Acción añadida correctamente.");
-            }
-        }
-    };
-
     const deleteAction = async (actionId) => {
-        if (!isOwner) return;
-        await supabaseClient.from('actions').delete().eq('id', actionId);
-    };
-
-    const addParticipant = async () => {
-        if (newParticipantName.trim() && newParticipantPosition.trim() && session && isOwner) {
-            const newParticipant = { full_name: newParticipantName, position: newParticipantPosition, doc_id: sessionId };
-            const { data, error } = await supabaseClient.from('participants').insert(newParticipant).select();
-            if (error) {
-                 console.error("Error adding participant:", error);
-                 showNotification("No se pudo añadir al participante.", "error");
-            } else if (data) {
-                setParticipants(current => [...current, data[0]]);
-                setNewParticipantName(''); setNewParticipantPosition('');
-            }
-        }
+        if (isOwner) await supabaseClient.from('actions').delete().eq('id', actionId);
     };
 
     const deleteParticipant = async (participantId) => {
-        if (!isOwner) return;
-        await supabaseClient.from('participants').delete().eq('id', participantId);
+        if (isOwner) await supabaseClient.from('participants').delete().eq('id', participantId);
+    };
+
+    const handleMoveParticipant = async (participantId, direction) => {
+        const currentIndex = participants.findIndex(p => p.id === participantId);
+        if ((direction === 'up' && currentIndex === 0) || (direction === 'down' && currentIndex === participants.length - 1)) return;
+        
+        const otherIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        const currentParticipant = participants[currentIndex];
+        const otherParticipant = participants[otherIndex];
+
+        // Swap ordering values
+        await supabaseClient.from('participants').update({ ordering: otherParticipant.ordering }).eq('id', currentParticipant.id);
+        await supabaseClient.from('participants').update({ ordering: currentParticipant.ordering }).eq('id', otherParticipant.id);
     };
 
     const handleStartRecording = async () => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) { showNotification("La transcripción no es soportada en este navegador.", "error"); return; }
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showNotification("La grabación de audio no es soportada.", "error"); return; }
+        if (!SpeechRecognition) { showNotification("La transcripción no es soportada.", "error"); return; }
+        if (!navigator.mediaDevices?.getUserMedia) { showNotification("Grabación no soportada.", "error"); return; }
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             setIsRecording(true);
-            audioChunksRef.current = [];
             mediaRecorderRef.current = new MediaRecorder(stream);
-            mediaRecorderRef.current.ondataavailable = (event) => { audioChunksRef.current.push(event.data); };
+            mediaRecorderRef.current.start();
+            audioChunksRef.current = [];
+            mediaRecorderRef.current.ondataavailable = e => audioChunksRef.current.push(e.data);
             mediaRecorderRef.current.onstop = () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 setAudioURL(URL.createObjectURL(audioBlob));
                 stream.getTracks().forEach(track => track.stop());
             };
-            mediaRecorderRef.current.start();
 
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = false; 
+            recognitionRef.current.interimResults = true;
             recognitionRef.current.lang = 'es-MX';
-
+            
+            let finalTranscript = '';
             recognitionRef.current.onresult = (event) => {
-                let transcript = '';
+                let interimTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
-                        transcript += event.results[i][0].transcript;
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
                     }
                 }
-                if (transcript) {
-                     setContent(prevContent => {
-                        const newContent = (prevContent ? prevContent.trim() + '\n\n' : '') + transcript.trim() + '.';
-                        handleContentChange(newContent); 
-                        return newContent;
-                    });
+                // Use broadcast for real-time feel
+                if (channelRef.current) {
+                    channelRef.current.send({ type: 'broadcast', event: 'transcription', payload: { transcript: finalTranscript } });
                 }
+                finalTranscript = ''; // Reset after sending
             };
             
-            recognitionRef.current.onerror = (event) => { console.error("Speech recognition error", event.error); showNotification(`Error de transcripción: ${event.error}`, "error"); };
+            recognitionRef.current.onend = () => {
+                 // Save final content to DB when recognition stops
+                 if (isOwner) {
+                    handleContentChange(content + finalTranscript);
+                 }
+            };
+
+            recognitionRef.current.onerror = (e) => { console.error(e); showNotification(`Error de transcripción: ${e.error}`, "error"); };
             recognitionRef.current.start();
         } catch (err) { showNotification("No se pudo acceder al micrófono.", "error"); }
     };
 
     const handleStopRecording = () => { 
-        if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); }
-        if (recognitionRef.current) { recognitionRef.current.stop(); }
-        setIsRecording(false); 
+        if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+        if (recognitionRef.current) recognitionRef.current.stop();
+        setIsRecording(false);
     };
     
     const handleExportPDF = () => {
         const pdfContainer = document.getElementById('pdf-container');
-        const contentToPrint = `
-            <div id="pdf-content">
-                <h1>Minuta de Reunión</h1>
-                <div class="minute-content">${content.replace(/\n/g, '<br>')}</div>
-                
-                <h2>Acciones Pendientes</h2>
-                <div class="actions-list">
-                    ${actions.length > 0 ? actions.map(a => `<div class="list-item"><strong>${a.text}</strong><br>Responsable: ${a.responsible || 'N/A'}<br>Plazo: ${a.deadline || 'N/A'}</div>`).join('') : '<p>No hay acciones pendientes.</p>'}
-                </div>
-
-                <h2>Participantes</h2>
-                <div class="participants-list">
-                    ${participants.length > 0 ? participants.map(p => `<div class="list-item">${p.full_name} - ${p.position}</div>`).join('') : '<p>No se registraron participantes.</p>'}
-                </div>
-
-                <div class="signatures-section">
-                    <h2>Firmas</h2>
-                    ${participants.map(p => `
-                        <div class="signature-block">
-                            <div class="signature-line"></div>
-                            <div class="signature-name">${p.full_name}</div>
-                            <div class="signature-position">${p.position}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
+        const contentToPrint = `<div id="pdf-content"><h1>Minuta de Reunión</h1><div class="minute-content">${content.replace(/\n/g, '<br>')}</div><h2>Acciones Pendientes</h2><div class="actions-list">${actions.length > 0 ? actions.map(a => `<div class="list-item"><strong>${a.text}</strong><br>Responsable: ${a.responsible || 'N/A'}<br>Plazo: ${a.deadline || 'N/A'}</div>`).join('') : '<p>No hay acciones.</p>'}</div><h2>Participantes</h2><div class="participants-list">${participants.length > 0 ? participants.map(p => `<div class="list-item">${p.full_name} - ${p.position}</div>`).join('') : '<p>No se registraron.</p>'}</div><div class="signatures-section"><h2>Firmas</h2>${participants.map(p => `<div class="signature-block"><div class="signature-line"></div><div class="signature-name">${p.full_name}</div><div class="signature-position">${p.position}</div></div>`).join('')}</div></div>`;
         pdfContainer.innerHTML = contentToPrint;
         const element = document.getElementById('pdf-content');
-        html2pdf(element, { margin: 10, filename: `minuta_${sessionId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } });
+        html2pdf(element, { margin: 10, filename: `minuta_${sessionId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } });
+    };
+
+    const ActionPanel = ({ isOwner }) => {
+        const [text, setText] = useState('');
+        const [responsible, setResponsible] = useState('');
+        const [deadline, setDeadline] = useState('');
+
+        const handleAdd = () => {
+            if (text.trim()) {
+                addAction({ doc_id: sessionId, user_id: session.user.id, text, responsible, deadline });
+                setText(''); setResponsible(''); setDeadline('');
+            }
+        };
+
+        return (<div className="border-t pt-4">
+            <h3 className="text-lg font-semibold mb-4 text-blue-600">Añadir Acción</h3>
+            <div className="space-y-3">
+                <input type="text" value={text} onChange={e => setText(e.target.value)} placeholder="Nueva acción..." className="w-full p-2 border border-slate-300 rounded-md"/>
+                <input type="text" value={responsible} onChange={e => setResponsible(e.target.value)} placeholder="Responsable..." className="w-full p-2 border border-slate-300 rounded-md"/>
+                <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className="w-full p-2 border border-slate-300 rounded-md"/>
+                <button className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg" onClick={handleAdd}><i className="fas fa-plus"></i> Añadir</button>
+            </div>
+        </div>);
     };
 
     return (
@@ -379,10 +357,13 @@ function MeetingRoom({ sessionId, session, userInfo }) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div className="p-4 bg-slate-50 border-b border-slate-200"><h2 className="text-lg font-semibold">Reunión de Sincronización</h2><p className="text-sm text-slate-500">ID de Sesión: {sessionId}</p></div>
+                        <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                            <div><h2 className="text-lg font-semibold">Reunión de Sincronización</h2><p className="text-sm text-slate-500">ID de Sesión: {sessionId}</p></div>
+                            {isRecording && <div className="text-sm text-red-500 font-semibold animate-pulse">Transcripción en curso...</div>}
+                        </div>
                         <div className="relative min-h-[500px] p-4" ref={editorRef} onMouseMove={handleMouseMove}>
                             {Object.entries(users).map(([key, u]) => (u && u.name !== userInfo.name) ? <Cursor key={key} user={u} /> : null)}
-                            <textarea readOnly={!isOwner} className={`w-full h-full absolute top-0 left-0 p-4 bg-transparent resize-none outline-none text-base leading-relaxed text-slate-800 ${!isOwner ? 'cursor-not-allowed' : ''}`} style={{ minHeight: '500px' }} value={content} onChange={(e) => handleContentChange(e.target.value)} />
+                            <textarea readOnly={!isOwner || isRecording} className={`w-full h-full absolute top-0 left-0 p-4 bg-transparent resize-none outline-none text-base leading-relaxed text-slate-800 ${!isOwner || isRecording ? 'cursor-not-allowed' : ''}`} style={{ minHeight: '500px' }} value={content} onChange={(e) => handleContentChange(e.target.value)} />
                         </div>
                     </div>
                      {audioURL && (<div className="bg-white rounded-xl shadow-md p-4"><h3 className="text-md font-semibold mb-2 text-slate-700">Grabación de Audio</h3><audio src={audioURL} controls className="w-full"></audio></div>)}
@@ -400,35 +381,25 @@ function MeetingRoom({ sessionId, session, userInfo }) {
                             )) : <p className="text-sm text-slate-500 text-center">No hay acciones.</p>}
                         </div>
                     </div>
-                    {isOwner && <div className="border-t pt-4">
-                        <h3 className="text-lg font-semibold mb-4 text-blue-600">Añadir Acción</h3>
-                        <div className="space-y-3">
-                            <input type="text" value={newActionText} onChange={e => setNewActionText(e.target.value)} placeholder="Nueva acción..." className="w-full p-2 border border-slate-300 rounded-md"/>
-                            <input type="text" value={newActionResponsible} onChange={e => setNewActionResponsible(e.target.value)} placeholder="Responsable..." className="w-full p-2 border border-slate-300 rounded-md"/>
-                            <input type="date" value={newActionDeadline} onChange={e => setNewActionDeadline(e.target.value)} className="w-full p-2 border border-slate-300 rounded-md"/>
-                            <button className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg" onClick={addAction}><i className="fas fa-plus"></i> Añadir</button>
-                        </div>
-                    </div>}
+                    {isOwner && <ActionPanel isOwner={isOwner}/>}
 
                     <div className="border-t pt-4">
                         <h3 className="text-lg font-semibold mb-4 text-purple-600">Participantes (para Firma)</h3>
                         <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                            {participants.length > 0 ? participants.map((p) => (
+                            {participants.length > 0 ? participants.map((p, index) => (
                                 <div key={p.id} className="bg-slate-50 p-2 rounded-md border border-slate-200 flex justify-between items-center text-sm">
                                     <div><p className="font-medium">{p.full_name}</p><p className="text-xs text-slate-500">{p.position}</p></div>
-                                    {isOwner && <button className="text-red-500 hover:text-red-700 ml-2 p-1" onClick={() => deleteParticipant(p.id)}><i className="fas fa-trash"></i></button>}
+                                    {isOwner && (
+                                        <div className="flex gap-2">
+                                            <button disabled={index === 0} onClick={() => handleMoveParticipant(p.id, 'up')} className="text-gray-500 hover:text-gray-800 disabled:opacity-25"><i className="fas fa-arrow-up"></i></button>
+                                            <button disabled={index === participants.length - 1} onClick={() => handleMoveParticipant(p.id, 'down')} className="text-gray-500 hover:text-gray-800 disabled:opacity-25"><i className="fas fa-arrow-down"></i></button>
+                                            <button className="text-red-500 hover:text-red-700 ml-2 p-1" onClick={() => deleteParticipant(p.id)}><i className="fas fa-trash"></i></button>
+                                        </div>
+                                    )}
                                 </div>
                             )) : <p className="text-sm text-slate-500 text-center">No hay participantes.</p>}
                         </div>
                     </div>
-                    {isOwner && <div className="border-t pt-4">
-                         <h3 className="text-lg font-semibold mb-4 text-purple-600">Añadir Participante</h3>
-                        <div className="space-y-3">
-                            <input type="text" value={newParticipantName} onChange={e => setNewParticipantName(e.target.value)} placeholder="Nombre completo..." className="w-full p-2 border border-slate-300 rounded-md"/>
-                            <input type="text" value={newParticipantPosition} onChange={e => setNewParticipantPosition(e.target.value)} placeholder="Puesto..." className="w-full p-2 border border-slate-300 rounded-md"/>
-                            <button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg" onClick={addParticipant}><i className="fas fa-user-plus"></i> Añadir</button>
-                        </div>
-                    </div>}
                 </div>
             </div>
         </div>
@@ -475,8 +446,8 @@ function App() {
     
     useEffect(() => { document.body.classList.add('loaded'); }, []);
 
-    const handleSetUserInfo = (name, color) => {
-        const info = { name, color };
+    const handleSetUserInfo = (name, position, color) => {
+        const info = { name, position, color };
         sessionStorage.setItem('minuteriaUserInfo', JSON.stringify(info));
         setUserInfo(info);
     };

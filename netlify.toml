@@ -1,5 +1,3 @@
-### 5. netlify.toml
-```toml
 [build]
   publish = "."
 

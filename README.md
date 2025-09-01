@@ -1,58 +1,35 @@
 # Minutería Colaborativa con Transcripción
 
-## Configuración de Supabase
+Una aplicación web para crear minutas de reuniones colaborativas en tiempo real con funcionalidad de transcripción de voz.
 
-Sigue estos pasos para configurar tu propia instancia de Supabase:
+## Características
 
-1. **Crear una cuenta en Supabase**:
-   - Ve a [https://supabase.com](https://supabase.com) y crea una cuenta
+- Edición colaborativa en tiempo real
+- Transcripción de voz a texto
+- Gestión de acciones y participantes
+- Generación de códigos QR para compartir sesiones
+- Exportación a PDF con formato profesional
+- Seguimiento de cursor de otros participantes
 
-2. **Crear un nuevo proyecto**:
-   - Haz clic en "New Project"
-   - Completa los detalles del proyecto (nombre, contraseña de base de datos, etc.)
-   - Espera a que se complete el aprovisionamiento
+## Configuración
 
-3. **Obtener las credenciales**:
-   - Ve a Settings → API
-   - Encuentra la URL del proyecto en "Configuración"
-   - Encuentra la clave anónima pública en "Claves API"
+1. Crear una cuenta en [Supabase](https://supabase.com)
+2. Crear un nuevo proyecto
+3. Obtener la URL y clave anónima del proyecto
+4. Configurar las tablas necesarias ejecutando el SQL proporcionado
+5. Reemplazar las credenciales en `app.js`
 
-4. **Configurar la aplicación**:
-   - Abre el archivo `config.js`
-   - Reemplaza `https://tu-proyecto.supabase.co` con tu URL de Supabase
-   - Reemplaza `tu-clave-anon-publica` con tu clave anónima pública
+## Despliegue en Netlify
 
-5. **Configurar la base de datos**:
-   - Ve a SQL Editor en Supabase
-   - Ejecuta los siguientes queries para crear las tablas necesarias:
+1. Conecta tu repositorio de GitHub a Netlify
+2. Configura las variables de entorno si es necesario
+3. ¡Tu aplicación estará en línea!
 
-```sql
--- Tabla: documents
-CREATE TABLE documents (
-  id TEXT PRIMARY KEY,
-  content TEXT,
-  owner_id UUID,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+## Tecnologías utilizadas
 
--- Tabla: actions
-CREATE TABLE actions (
-  id BIGSERIAL PRIMARY KEY,
-  text TEXT,
-  responsible TEXT,
-  deadline DATE,
-  user_id UUID,
-  doc_id TEXT REFERENCES documents(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Tabla: participants
-CREATE TABLE participants (
-  id BIGSERIAL PRIMARY KEY,
-  full_name TEXT,
-  position TEXT,
-  user_id UUID,
-  doc_id TEXT REFERENCES documents(id),
-  ordering INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+- React
+- Supabase (Backend as a Service)
+- Tailwind CSS
+- Speech Recognition API
+- HTML2PDF.js
+- QR Code Styling

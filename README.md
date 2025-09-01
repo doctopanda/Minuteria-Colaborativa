@@ -1,64 +1,37 @@
-Minutería Colaborativa con Supabase y React
-Esta es una aplicación de toma de minutas en tiempo real construida con React (sin un framework como Create React App) y Supabase como backend.
+# Minutería Colaborativa con Transcripción
 
-Características
-Edición en Tiempo Real: Los cambios en la minuta se reflejan instantáneamente para todos los participantes.
+Una aplicación web para crear minutas colaborativas en tiempo real con transcripción de voz.
 
-Roles de Usuario: Un "responsable" puede editar, mientras que los "participantes" solo pueden ver.
+## Características
 
-Salas Únicas: Cada minuta se crea en una sala separada con un enlace único.
+- Edición colaborativa en tiempo real
+- Seguimiento de cursores de otros usuarios
+- Transcripción de voz a texto
+- Gestión de acciones pendientes
+- Generación de códigos QR para invitar participantes
+- Grabación de audio
 
-Invitaciones por QR: El responsable puede generar un código QR para que otros se unan.
+## Tecnologías Utilizadas
 
-Grabación de Audio: El responsable puede grabar el audio de la reunión.
+- React 18
+- Supabase (Backend as a Service)
+- Tailwind CSS (Estilos)
+- Web Speech API (Transcripción de voz)
+- QR Code Styling (Generación de códigos QR)
 
-Acciones Pendientes: Sistema para asignar y visualizar tareas.
+## Configuración para Despliegue en Netlify
 
-Cursores en Vivo: Ve la posición del cursor de otros participantes en tiempo real.
+1. Clona o descarga este repositorio
+2. Conecta tu repositorio a Netlify
+3. Asegúrate de que el directorio de publicación sea el raíz (`.`)
+4. No se necesitan comandos de build ya que es una aplicación cliente
 
-Configuración y Despliegue
-Sigue estos pasos para desplegar tu propia versión de la aplicación en Netlify.
+## Configuración de Supabase
 
-1. Configurar Supabase
-Necesitas una base de datos de Supabase para almacenar los datos.
+La aplicación requiere una instancia de Supabase configurada:
 
-Crea un Proyecto: Ve a Supabase.com y crea un nuevo proyecto.
+1. Crea una cuenta en [Supabase](https://supabase.com)
+2. Crea un nuevo proyecto
+3. Configura las siguientes tablas:
 
-Credenciales ya configuradas: Las credenciales de Supabase (URL y anon key) ya han sido añadidas al archivo app.js.
-
-Ejecuta el Script SQL:
-
-En tu proyecto, ve al SQL Editor.
-
-Crea una nueva consulta y pega el contenido del script SQL que te proporcioné para crear las tablas documents y actions con sus políticas de seguridad (RLS).
-
-Ejecuta el script.
-
-Habilita la Autenticación Anónima:
-
-Ve a Authentication > Providers.
-
-Busca Anonymous en la lista y habilítalo.
-
-2. Desplegar en Netlify
-La forma más fácil de desplegar es a través de GitHub.
-
-Crea un Repositorio en GitHub: Sube los archivos (index.html, style.css, app.js, netlify.toml, README.md) a un nuevo repositorio en tu cuenta de GitHub.
-
-Conecta a Netlify:
-
-Inicia sesión en Netlify.
-
-Haz clic en "Add new site" > "Import an existing project".
-
-Elige GitHub y autoriza a Netlify para que acceda a tus repositorios.
-
-Selecciona el repositorio que acabas de crear.
-
-Configura el Despliegue:
-
-Netlify detectará automáticamente el archivo netlify.toml. Las configuraciones de compilación deberían ser correctas por defecto.
-
-Haz clic en "Deploy site".
-
-¡Y eso es todo! Netlify construirá y desplegará tu sitio. Una vez que esté en vivo, obtendrás una URL pública que podrás usar para probar la funcionalidad del código QR con cualquier dispositivo.
+### Tabla: documents

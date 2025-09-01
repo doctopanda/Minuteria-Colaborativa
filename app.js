@@ -3,7 +3,7 @@ const { createClient } = supabase;
 
 // --- Configuración de Supabase ---
 const supabaseUrl = 'https://genidguluqumknwtoqfm.supabase.co'; 
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhbmFzZSIsInJlZiI6ImdlbmlkZ3VsdXF1bWtud3RvcWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MjY2MTQsImV4cCI6MjA2ODEwMjYxNH0.GNG_V-rkQWamqqyX4T1tWoh1hLEac_nJv40JX5o63WY';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlbmlkZ3VsdXF1bWtud3RvcWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MjY2MTQsImV4cCI6MjA2ODEwMjYxNH0.GNG_V-rkQWamqqyX4T1tWoh1hLEac_nJv40JX5o63WY';
 
 let supabaseClient;
 try {

@@ -1,4 +1,8 @@
-/* Solución para el parpadeo del código: la página empieza invisible y aparece con un fundido */
+/* Previene que el navegador muestre el código JSX antes de que Babel lo compile */
+script[type="text/babel"] {
+    display: none;
+}
+/* La página empieza invisible y aparece con un fundido para una carga suave */
 body { 
     opacity: 0;
     transition: opacity 0.4s ease-in-out;
@@ -36,4 +40,66 @@ body.loaded {
 }
 .notification {
     transition: opacity 0.5s, transform 0.5s;
+}
+/* Estilos para el contenedor del PDF */
+#pdf-content {
+    font-family: Arial, sans-serif;
+    color: #333;
+    padding: 40px;
+    width: 210mm; /* A4 width */
+    box-sizing: border-box;
+}
+#pdf-content h1 {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c5282;
+    border-bottom: 2px solid #2c5282;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+#pdf-content h2 {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2d3748;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 5px;
+}
+#pdf-content .minute-content {
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap; /* Respeta saltos de línea y espacios */
+}
+#pdf-content .actions-list,
+#pdf-content .participants-list {
+    font-size: 12px;
+    margin-top: 10px;
+}
+#pdf-content .list-item {
+    border-bottom: 1px solid #edf2f7;
+    padding: 8px 0;
+}
+#pdf-content .list-item:last-child {
+    border-bottom: none;
+}
+#pdf-content .signatures-section {
+    margin-top: 60px;
+}
+#pdf-content .signature-block {
+    margin-top: 40px;
+    display: inline-block; 
+    width: 45%; 
+    margin-right: 5%; 
+}
+#pdf-content .signature-line {
+    border-top: 1px solid #718096;
+    padding-top: 5px;
+}
+#pdf-content .signature-name {
+    font-weight: bold;
+}
+#pdf-content .signature-position {
+    font-style: italic;
+    color: #4a5568;
 }

@@ -79,18 +79,21 @@ body.loaded {
 #pdf-content .list-item {
     border-bottom: 1px solid #edf2f7;
     padding: 8px 0;
+    page-break-inside: avoid; /* Evita que se corte el item */
 }
 #pdf-content .list-item:last-child {
     border-bottom: none;
 }
 #pdf-content .signatures-section {
     margin-top: 60px;
+    page-break-before: always; /* Empieza en una nueva página si es necesario */
 }
 #pdf-content .signature-block {
     margin-top: 40px;
     display: inline-block; 
     width: 45%; 
     margin-right: 5%; 
+    page-break-inside: avoid;
 }
 #pdf-content .signature-line {
     border-top: 1px solid #718096;

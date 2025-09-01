@@ -7,25 +7,32 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 let supabaseClient;
 try {
-    supabaseClient = createClient(supabaseUrl, supabaseKey);
+    if (supabaseUrl && supabaseKey && supabaseUrl !== 'https://tu-proyecto.supabase.co') {
+         supabaseClient = createClient(supabaseUrl, supabaseKey);
+    }
 } catch (error) {
     console.error("Error initializing Supabase. Please check your URL and Key.", error);
 }
 
 // --- Components ---
-function ErrorDisplay({ message }) {
+function ErrorDisplay({ message, isKeyError = false }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div className="m-4 max-w-lg">
                 <div className="text-center p-8 bg-white rounded-lg shadow-xl">
-                    <h2 className="font-bold text-2xl text-red-600 mb-4"><i className="fas fa-exclamation-triangle mr-2"></i>Acción Requerida</h2>
-                    <p className="text-slate-700 text-left mb-4">La aplicación no puede iniciar porque una configuración necesaria está desactivada en tu proyecto de Supabase.</p>
+                    <h2 className="font-bold text-2xl text-red-600 mb-4"><i className="fas fa-exclamation-triangle mr-2"></i>Error de Configuración</h2>
+                    <p className="text-slate-700 text-left mb-4">La aplicación no puede iniciar debido a un problema con la configuración de Supabase.</p>
                     <div className="text-left p-4 bg-red-50 border border-red-200 rounded-md">
                         <p className="font-semibold text-red-800">Error: {message}</p>
                     </div>
-                    <p className="text-slate-700 text-left mt-4 mb-6">Para solucionarlo, por favor activa el inicio de sesión anónimo en tu panel de control de Supabase (Authentication -> Providers).</p>
+                    <p className="text-slate-700 text-left mt-4 mb-6">
+                        {isKeyError 
+                            ? "Por favor, verifica que la 'URL' y la 'Clave Pública (anon key)' en el código sean correctas. Puedes obtenerlas desde el panel de tu proyecto en Supabase."
+                            : "Para solucionarlo, por favor activa el inicio de sesión anónimo en tu panel de control de Supabase (Authentication -> Providers)."
+                        }
+                    </p>
                     <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="inline-block w-full bg-red-500 text-white font-bold py-3 px-4 rounded hover:bg-red-600 transition-colors">
-                        <i className="fas fa-external-link-alt mr-2"></i> Ir al panel de Supabase para arreglarlo
+                        <i className="fas fa-external-link-alt mr-2"></i> Ir al panel de Supabase
                     </a>
                 </div>
             </div>
@@ -71,9 +78,7 @@ function QRCodeModal({ sessionId, onClose }) {
     const qrRef = useRef(null);
     const qrCodeInstance = useRef(null);
     const url = `${window.location.origin}${window.location.pathname}?session=${sessionId}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`¡Únete a la minuta!\n\n${url}`)}`;
-    const emailUrl = `mailto:?subject=${encodeURIComponent("Invitación a la Minuta")}&body=${encodeURIComponent(`Hola,\n\nEstás invitado/a a participar en una minuta en tiempo real. Haz clic en el siguiente enlace para unirte:\n\n${url}\n\n¡Gracias!`)}`;
-
+    
     useEffect(() => {
         if (qrRef.current && window.QRCodeStyling) {
             qrCodeInstance.current = new window.QRCodeStyling({
@@ -100,13 +105,9 @@ function QRCodeModal({ sessionId, onClose }) {
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={onClose}>
             <div className="bg-white rounded-lg shadow-xl p-8 text-center" onClick={(e) => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold mb-4">Invita a Participantes</h2>
-                <p className="text-slate-600 mb-6">Escanea el código, descárgalo o comparte el enlace.</p>
+                <p className="text-slate-600 mb-6">Escanea el código para unirte o descárgalo para compartir.</p>
                 <div ref={qrRef} className="inline-block"></div>
-                <div className="mt-6 flex gap-4">
-                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2"><i className="fab fa-whatsapp"></i> WhatsApp</a>
-                    <a href={emailUrl} className="flex-1 bg-gray-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-2"><i className="fas fa-envelope"></i> Correo</a>
-                </div>
-                <div className="mt-4 flex gap-4">
+                <div className="mt-6 flex flex-col sm:flex-row gap-4">
                      <button onClick={handleDownload} className="flex-1 bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2"><i className="fas fa-download"></i> Descargar QR</button>
                     <button onClick={onClose} className="flex-1 bg-slate-200 text-slate-700 font-bold py-2 rounded-md hover:bg-slate-300 transition">Cerrar</button>
                 </div>
@@ -119,12 +120,19 @@ function MeetingRoom({ sessionId, session, userInfo }) {
     const [content, setContent] = useState("");
     const [users, setUsers] = useState({});
     const [actions, setActions] = useState([]);
+    const [participants, setParticipants] = useState([]);
     const [isRecording, setIsRecording] = useState(false);
     const [audioURL, setAudioURL] = useState('');
     const [notification, setNotification] = useState(null);
     const [isOwner, setIsOwner] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
     
+    const [newActionText, setNewActionText] = useState('');
+    const [newActionResponsible, setNewActionResponsible] = useState('');
+    const [newActionDeadline, setNewActionDeadline] = useState('');
+    const [newParticipantName, setNewParticipantName] = useState('');
+    const [newParticipantPosition, setNewParticipantPosition] = useState('');
+
     const editorRef = useRef(null);
     const channelRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -133,7 +141,6 @@ function MeetingRoom({ sessionId, session, userInfo }) {
 
     const showNotification = (message, type = 'success') => { setNotification({ message, type }); };
 
-    // Presence and Cursors
     useEffect(() => {
         if (!session || !userInfo || !supabaseClient) return;
 
@@ -152,7 +159,6 @@ function MeetingRoom({ sessionId, session, userInfo }) {
         return () => { channel.unsubscribe(); };
     }, [session, userInfo, sessionId]);
 
-    // Document and Role Sync
     useEffect(() => {
         if (!supabaseClient || !session) return;
         
@@ -172,7 +178,6 @@ function MeetingRoom({ sessionId, session, userInfo }) {
         return () => { subscription.unsubscribe(); };
     }, [sessionId, session]);
     
-    // Actions Sync
     useEffect(() => {
         if (!supabaseClient) return;
         const fetchActions = async () => {
@@ -183,16 +188,47 @@ function MeetingRoom({ sessionId, session, userInfo }) {
 
         const subscription = supabaseClient.channel(`actions-${sessionId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'actions', filter: `doc_id=eq.${sessionId}` }, payload => {
-                if (payload.eventType === 'INSERT') setActions(current => [...current, payload.new]);
-                if (payload.eventType === 'DELETE') setActions(current => current.filter(a => a.id !== payload.old.id));
+                if (payload.eventType === 'INSERT') {
+                    setActions(current => {
+                        if (current.some(a => a.id === payload.new.id)) return current;
+                        return [...current, payload.new];
+                    });
+                }
+                if (payload.eventType === 'DELETE') {
+                    setActions(current => current.filter(a => a.id !== payload.old.id));
+                }
+            }).subscribe();
+        return () => { subscription.unsubscribe(); };
+    }, [sessionId]);
+    
+    useEffect(() => {
+        if (!supabaseClient) return;
+        const fetchParticipants = async () => {
+            const { data } = await supabaseClient.from('participants').select('*').eq('doc_id', sessionId);
+            if (data) setParticipants(data);
+        };
+        fetchParticipants();
+
+        const subscription = supabaseClient.channel(`participants-${sessionId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'participants', filter: `doc_id=eq.${sessionId}` }, payload => {
+                if (payload.eventType === 'INSERT') {
+                    setParticipants(current => {
+                        if (current.some(p => p.id === payload.new.id)) return current;
+                        return [...current, payload.new];
+                    });
+                }
+                if (payload.eventType === 'DELETE') {
+                    setParticipants(current => current.filter(p => p.id !== payload.old.id));
+                }
             }).subscribe();
         return () => { subscription.unsubscribe(); };
     }, [sessionId]);
 
     const handleContentChange = async (newContent) => {
-        if (!isOwner) return;
         setContent(newContent);
-        await supabaseClient.from('documents').update({ content: newContent }).eq('id', sessionId);
+        if (isOwner) {
+             await supabaseClient.from('documents').update({ content: newContent }).eq('id', sessionId);
+        }
     };
 
     const handleMouseMove = (e) => {
@@ -203,13 +239,17 @@ function MeetingRoom({ sessionId, session, userInfo }) {
     };
     
     const addAction = async () => {
-        const textInput = document.getElementById('newActionInput');
-        const responsibleInput = document.getElementById('responsibleInput');
-        const deadlineInput = document.getElementById('deadlineInput');
-        if (textInput.value.trim() && session && isOwner) {
-            const newAction = { text: textInput.value, responsible: responsibleInput.value, deadline: deadlineInput.value, user_id: session.user.id, doc_id: sessionId };
-            await supabaseClient.from('actions').insert(newAction);
-            textInput.value = ''; responsibleInput.value = ''; deadlineInput.value = '';
+        if (newActionText.trim() && session && isOwner) {
+            const newAction = { text: newActionText, responsible: newActionResponsible, deadline: newActionDeadline, user_id: session.user.id, doc_id: sessionId };
+            const { data, error } = await supabaseClient.from('actions').insert(newAction).select();
+            if (error) {
+                console.error("Error adding action:", error);
+                showNotification("No se pudo añadir la acción. Revisa los permisos de la tabla.", "error");
+            } else if (data) {
+                setActions(current => [...current, data[0]]);
+                setNewActionText(''); setNewActionResponsible(''); setNewActionDeadline('');
+                showNotification("Acción añadida correctamente.");
+            }
         }
     };
 
@@ -218,19 +258,31 @@ function MeetingRoom({ sessionId, session, userInfo }) {
         await supabaseClient.from('actions').delete().eq('id', actionId);
     };
 
+    const addParticipant = async () => {
+        if (newParticipantName.trim() && newParticipantPosition.trim() && session && isOwner) {
+            const newParticipant = { full_name: newParticipantName, position: newParticipantPosition, doc_id: sessionId };
+            const { data, error } = await supabaseClient.from('participants').insert(newParticipant).select();
+            if (error) {
+                 console.error("Error adding participant:", error);
+                 showNotification("No se pudo añadir al participante.", "error");
+            } else if (data) {
+                setParticipants(current => [...current, data[0]]);
+                setNewParticipantName(''); setNewParticipantPosition('');
+            }
+        }
+    };
+
+    const deleteParticipant = async (participantId) => {
+        if (!isOwner) return;
+        await supabaseClient.from('participants').delete().eq('id', participantId);
+    };
+
     const handleStartRecording = async () => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            showNotification("La transcripción no es soportada en este navegador.", "error");
-            return;
-        }
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { 
-            showNotification("La grabación de audio no es soportada.", "error"); 
-            return; 
-        }
+        if (!SpeechRecognition) { showNotification("La transcripción no es soportada en este navegador.", "error"); return; }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showNotification("La grabación de audio no es soportada.", "error"); return; }
 
         try {
-            // Start audio recording
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             setIsRecording(true);
             audioChunksRef.current = [];
@@ -243,10 +295,9 @@ function MeetingRoom({ sessionId, session, userInfo }) {
             };
             mediaRecorderRef.current.start();
 
-            // Start speech recognition
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = false;
+            recognitionRef.current.interimResults = false; 
             recognitionRef.current.lang = 'es-MX';
 
             recognitionRef.current.onresult = (event) => {
@@ -259,28 +310,55 @@ function MeetingRoom({ sessionId, session, userInfo }) {
                 if (transcript) {
                      setContent(prevContent => {
                         const newContent = (prevContent ? prevContent.trim() + '\n\n' : '') + transcript.trim() + '.';
-                        handleContentChange(newContent); // Sync with supabase
+                        handleContentChange(newContent); 
                         return newContent;
                     });
                 }
             };
             
-            recognitionRef.current.onerror = (event) => {
-                console.error("Speech recognition error", event.error);
-                showNotification(`Error de transcripción: ${event.error}`, "error");
-            };
-
+            recognitionRef.current.onerror = (event) => { console.error("Speech recognition error", event.error); showNotification(`Error de transcripción: ${event.error}`, "error"); };
             recognitionRef.current.start();
-
-        } catch (err) { 
-            showNotification("No se pudo acceder al micrófono.", "error"); 
-        }
+        } catch (err) { showNotification("No se pudo acceder al micrófono.", "error"); }
     };
 
     const handleStopRecording = () => { 
         if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); }
         if (recognitionRef.current) { recognitionRef.current.stop(); }
         setIsRecording(false); 
+    };
+    
+    const handleExportPDF = () => {
+        const pdfContainer = document.getElementById('pdf-container');
+        const contentToPrint = `
+            <div id="pdf-content">
+                <h1>Minuta de Reunión</h1>
+                <div class="minute-content">${content.replace(/\n/g, '<br>')}</div>
+                
+                <h2>Acciones Pendientes</h2>
+                <div class="actions-list">
+                    ${actions.length > 0 ? actions.map(a => `<div class="list-item"><strong>${a.text}</strong><br>Responsable: ${a.responsible || 'N/A'}<br>Plazo: ${a.deadline || 'N/A'}</div>`).join('') : '<p>No hay acciones pendientes.</p>'}
+                </div>
+
+                <h2>Participantes</h2>
+                <div class="participants-list">
+                    ${participants.length > 0 ? participants.map(p => `<div class="list-item">${p.full_name} - ${p.position}</div>`).join('') : '<p>No se registraron participantes.</p>'}
+                </div>
+
+                <div class="signatures-section">
+                    <h2>Firmas</h2>
+                    ${participants.map(p => `
+                        <div class="signature-block">
+                            <div class="signature-line"></div>
+                            <div class="signature-name">${p.full_name}</div>
+                            <div class="signature-position">${p.position}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        pdfContainer.innerHTML = contentToPrint;
+        const element = document.getElementById('pdf-content');
+        html2pdf(element, { margin: 10, filename: `minuta_${sessionId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } });
     };
 
     return (
@@ -292,6 +370,7 @@ function MeetingRoom({ sessionId, session, userInfo }) {
                 <div className="flex items-center gap-3">
                      {isOwner && <button onClick={isRecording ? handleStopRecording : handleStartRecording} className={`flex items-center gap-2 text-white font-bold py-2 px-4 rounded-lg transition-all ${isRecording ? 'bg-red-500 recording-pulse' : 'bg-gray-700 hover:bg-gray-800'}`}><i className={`fas ${isRecording ? 'fa-stop-circle' : 'fa-microphone'}`}></i>{isRecording ? 'Detener' : 'Grabar y Transcribir'}</button>}
                      {isOwner && <button onClick={() => setShowQRModal(true)} className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg"><i className="fas fa-qrcode"></i>Invitar</button>}
+                     {isOwner && <button onClick={handleExportPDF} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg"><i className="fas fa-file-pdf"></i>Exportar PDF</button>}
                     <span className="text-sm text-slate-600 hidden sm:inline">Online:</span>
                     <div className="flex -space-x-2">{Object.entries(users).map(([key, u]) => (u && u.name && <div key={key} className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white font-bold" style={{ backgroundColor: u.color }} title={u.name}>{u.name.charAt(0)}</div>))}</div>
                 </div>
@@ -312,11 +391,11 @@ function MeetingRoom({ sessionId, session, userInfo }) {
                 <div className="bg-white rounded-xl shadow-md p-5 space-y-4">
                     <div>
                         <h3 className="text-lg font-semibold mb-4 text-blue-600">Acciones Pendientes</h3>
-                        <div id="actionsList" className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                             {actions.length > 0 ? actions.map((action) => (
-                                <div key={action.id} className="action-item bg-slate-50 p-2 rounded-md border border-slate-200 flex justify-between items-center text-sm">
-                                    <div className="flex-grow"><p className="font-medium">{action.text}</p><div className="text-xs text-slate-500 flex gap-3">{action.responsible && <span><i className="fas fa-user"></i> {action.responsible}</span>}{action.deadline && <span><i className="fas fa-calendar-alt"></i> {action.deadline}</span>}</div></div>
-                                    {isOwner && <button className="delete-action text-red-500 hover:text-red-700 ml-2 p-1" onClick={() => deleteAction(action.id)}><i className="fas fa-trash"></i></button>}
+                                <div key={action.id} className="bg-slate-50 p-2 rounded-md border border-slate-200 flex justify-between items-center text-sm">
+                                    <div><p className="font-medium">{action.text}</p><div className="text-xs text-slate-500 flex gap-3">{action.responsible && <span><i className="fas fa-user"></i> {action.responsible}</span>}{action.deadline && <span><i className="fas fa-calendar-alt"></i> {action.deadline}</span>}</div></div>
+                                    {isOwner && <button className="text-red-500 hover:text-red-700 ml-2 p-1" onClick={() => deleteAction(action.id)}><i className="fas fa-trash"></i></button>}
                                 </div>
                             )) : <p className="text-sm text-slate-500 text-center">No hay acciones.</p>}
                         </div>
@@ -324,10 +403,30 @@ function MeetingRoom({ sessionId, session, userInfo }) {
                     {isOwner && <div className="border-t pt-4">
                         <h3 className="text-lg font-semibold mb-4 text-blue-600">Añadir Acción</h3>
                         <div className="space-y-3">
-                            <input type="text" id="newActionInput" placeholder="Nueva acción..." className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"/>
-                            <input type="text" id="responsibleInput" placeholder="Responsable..." className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"/>
-                            <input type="date" id="deadlineInput" className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"/>
-                            <button className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" onClick={addAction}><i className="fas fa-plus"></i> Añadir</button>
+                            <input type="text" value={newActionText} onChange={e => setNewActionText(e.target.value)} placeholder="Nueva acción..." className="w-full p-2 border border-slate-300 rounded-md"/>
+                            <input type="text" value={newActionResponsible} onChange={e => setNewActionResponsible(e.target.value)} placeholder="Responsable..." className="w-full p-2 border border-slate-300 rounded-md"/>
+                            <input type="date" value={newActionDeadline} onChange={e => setNewActionDeadline(e.target.value)} className="w-full p-2 border border-slate-300 rounded-md"/>
+                            <button className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg" onClick={addAction}><i className="fas fa-plus"></i> Añadir</button>
+                        </div>
+                    </div>}
+
+                    <div className="border-t pt-4">
+                        <h3 className="text-lg font-semibold mb-4 text-purple-600">Participantes (para Firma)</h3>
+                        <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                            {participants.length > 0 ? participants.map((p) => (
+                                <div key={p.id} className="bg-slate-50 p-2 rounded-md border border-slate-200 flex justify-between items-center text-sm">
+                                    <div><p className="font-medium">{p.full_name}</p><p className="text-xs text-slate-500">{p.position}</p></div>
+                                    {isOwner && <button className="text-red-500 hover:text-red-700 ml-2 p-1" onClick={() => deleteParticipant(p.id)}><i className="fas fa-trash"></i></button>}
+                                </div>
+                            )) : <p className="text-sm text-slate-500 text-center">No hay participantes.</p>}
+                        </div>
+                    </div>
+                    {isOwner && <div className="border-t pt-4">
+                         <h3 className="text-lg font-semibold mb-4 text-purple-600">Añadir Participante</h3>
+                        <div className="space-y-3">
+                            <input type="text" value={newParticipantName} onChange={e => setNewParticipantName(e.target.value)} placeholder="Nombre completo..." className="w-full p-2 border border-slate-300 rounded-md"/>
+                            <input type="text" value={newParticipantPosition} onChange={e => setNewParticipantPosition(e.target.value)} placeholder="Puesto..." className="w-full p-2 border border-slate-300 rounded-md"/>
+                            <button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg" onClick={addParticipant}><i className="fas fa-user-plus"></i> Añadir</button>
                         </div>
                     </div>}
                 </div>
@@ -339,57 +438,42 @@ function MeetingRoom({ sessionId, session, userInfo }) {
 function App() {
     const [session, setSession] = useState(null);
     const [userInfo, setUserInfo] = useState(() => {
-        try {
-            const saved = sessionStorage.getItem('minuteriaUserInfo');
-            return saved ? JSON.parse(saved) : null;
-        } catch {
-            return null;
-        }
+        try { const saved = sessionStorage.getItem('minuteriaUserInfo'); return saved ? JSON.parse(saved) : null; } catch { return null; }
     });
     const [sessionId, setSessionId] = useState(null);
     const [authError, setAuthError] = useState(null);
 
-    // Auth
     useEffect(() => {
         if (!supabaseClient) return;
         
         const setupSession = async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) {
-                setSession(session);
-            } else {
+            if (session) { setSession(session); } 
+            else {
                 const { data: { session: newSession }, error } = await supabaseClient.auth.signInAnonymously();
                 if (error) {
                     console.error("Error signing in anonymously:", error);
-                    if (error.message.includes("Anonymous sign-ins are disabled")) {
+                    if (error.message.includes("Invalid API key")) {
+                        setAuthError("La clave de API (anon key) de Supabase es inválida.");
+                    } else if (error.message.includes("Anonymous sign-ins are disabled")) {
                         setAuthError("El inicio de sesión anónimo está deshabilitado.");
                     }
-                } else {
-                    setSession(newSession);
-                }
+                } else { setSession(newSession); }
             }
         };
         setupSession();
 
-        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-        });
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => { setSession(session); });
         return () => subscription.unsubscribe();
     }, []);
     
-    // Session from URL
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const sessionParam = urlParams.get('session');
-        if (sessionParam) {
-            setSessionId(sessionParam);
-        }
+        if (sessionParam) { setSessionId(sessionParam); }
     }, []);
     
-    // Make body visible after app mounts to prevent code flash
-    useEffect(() => {
-        document.body.classList.add('loaded');
-    }, []);
+    useEffect(() => { document.body.classList.add('loaded'); }, []);
 
     const handleSetUserInfo = (name, color) => {
         const info = { name, color };
@@ -398,10 +482,7 @@ function App() {
     };
 
     const createNewMeeting = async () => {
-        if (!session) {
-            alert("Estableciendo sesión segura... Por favor, inténtalo de nuevo en un momento.");
-            return;
-        }
+        if (!session) { alert("Estableciendo sesión segura... Por favor, inténtalo de nuevo en un momento."); return; }
         const newId = Math.random().toString(36).substring(2, 10);
         const { error } = await supabaseClient.from('documents').insert({ id: newId, content: `## Minuta de Reunión - ${new Date().toLocaleDateString()}\n\n- Escribe aquí para empezar.`, owner_id: session.user.id });
         if (error) {
@@ -412,42 +493,27 @@ function App() {
                 const url = new URL(window.location);
                 url.searchParams.set('session', newId);
                 window.history.pushState({}, '', url);
-            } catch (e) {
-                console.warn("Could not update URL via pushState. This is expected in sandboxed environments.");
-            }
+            } catch (e) { console.warn("Could not update URL via pushState. This is expected in sandboxed environments."); }
             setSessionId(newId);
         }
     };
 
-    if (authError) {
-        return <ErrorDisplay message={authError} />;
-    }
-
-    if (!supabaseClient) {
-         return (<div className="m-4"><div className="text-center p-8 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-lg shadow-md"><h2 className="font-bold text-xl mb-2">Configuración Incompleta</h2><p>Reemplaza las credenciales de Supabase en el código para conectar la aplicación.</p></div></div>);
-    }
-    
-    if (!userInfo) {
-        return <NamePicker onNameSet={handleSetUserInfo} />;
-    }
-
+    if (authError) { return <ErrorDisplay message={authError} isKeyError={authError.includes("inválida")} />; }
+    if (!supabaseClient) { return (<div className="m-4"><div className="text-center p-8 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-lg shadow-md"><h2 className="font-bold text-xl mb-2">Configuración Incompleta</h2><p>Reemplaza las credenciales de Supabase en el código para conectar la aplicación.</p></div></div>); }
+    if (!userInfo) { return <NamePicker onNameSet={handleSetUserInfo} />; }
     if (!sessionId) {
         return (
             <div className="flex items-center justify-center h-screen">
                 <div className="text-center">
                     <h1 className="text-4xl font-bold mb-6">Minutería Colaborativa</h1>
-                    <button onClick={createNewMeeting} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg">
-                        <i className="fas fa-plus mr-2"></i> Crear Nueva Minuta
-                    </button>
+                    <button onClick={createNewMeeting} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg"><i className="fas fa-plus mr-2"></i> Crear Nueva Minuta</button>
                 </div>
             </div>
         );
     }
-
     return <MeetingRoom sessionId={sessionId} session={session} userInfo={userInfo} />;
 }
 
-// --- Render the App ---
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 root.render(<App />);

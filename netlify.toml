@@ -1,7 +1,13 @@
 [build]
   publish = "."
+  command = "echo 'No build step required'"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[build.environment]
+  # Variables de entorno (opcional - también puedes configurarlas en el panel de Netlify)
+  # REACT_APP_SUPABASE_URL = "https://tu-proyecto.supabase.co"
+  # REACT_APP_SUPABASE_ANON_KEY = "tu-clave-anon-supabase"

@@ -69,7 +69,7 @@ function Cursor({ user }) {
 
 function QRCodeModal({ sessionId, onClose }) {
     const qrRef = useRef(null);
-    const qrCodeInstance = useRef(null); // Ref to hold the QRCodeStyling instance
+    const qrCodeInstance = useRef(null);
     const url = `${window.location.origin}${window.location.pathname}?session=${sessionId}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`¡Únete a la minuta!\n\n${url}`)}`;
     const emailUrl = `mailto:?subject=${encodeURIComponent("Invitación a la Minuta")}&body=${encodeURIComponent(`Hola,\n\nEstás invitado/a a participar en una minuta en tiempo real. Haz clic en el siguiente enlace para unirte:\n\n${url}\n\n¡Gracias!`)}`;
@@ -92,10 +92,7 @@ function QRCodeModal({ sessionId, onClose }) {
     
     const handleDownload = () => {
         if (qrCodeInstance.current) {
-            qrCodeInstance.current.download({
-                name: "minuta-qr",
-                extension: "png"
-            });
+            qrCodeInstance.current.download({ name: "minuta-qr", extension: "png" });
         }
     };
 
@@ -106,17 +103,11 @@ function QRCodeModal({ sessionId, onClose }) {
                 <p className="text-slate-600 mb-6">Escanea el código, descárgalo o comparte el enlace.</p>
                 <div ref={qrRef} className="inline-block"></div>
                 <div className="mt-6 flex gap-4">
-                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2">
-                        <i className="fab fa-whatsapp"></i> WhatsApp
-                    </a>
-                    <a href={emailUrl} className="flex-1 bg-gray-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-2">
-                        <i className="fas fa-envelope"></i> Correo
-                    </a>
+                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2"><i className="fab fa-whatsapp"></i> WhatsApp</a>
+                    <a href={emailUrl} className="flex-1 bg-gray-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-2"><i className="fas fa-envelope"></i> Correo</a>
                 </div>
                 <div className="mt-4 flex gap-4">
-                     <button onClick={handleDownload} className="flex-1 bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2">
-                        <i className="fas fa-download"></i> Descargar QR
-                    </button>
+                     <button onClick={handleDownload} className="flex-1 bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2"><i className="fas fa-download"></i> Descargar QR</button>
                     <button onClick={onClose} className="flex-1 bg-slate-200 text-slate-700 font-bold py-2 rounded-md hover:bg-slate-300 transition">Cerrar</button>
                 </div>
             </div>
@@ -138,6 +129,7 @@ function MeetingRoom({ sessionId, session, userInfo }) {
     const channelRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
+    const recognitionRef = useRef(null);
 
     const showNotification = (message, type = 'success') => { setNotification({ message, type }); };
 
@@ -167,7 +159,7 @@ function MeetingRoom({ sessionId, session, userInfo }) {
         const fetchDoc = async () => {
             const { data } = await supabaseClient.from('documents').select('*').eq('id', sessionId).single();
             if (data) {
-                setContent(data.content);
+                setContent(data.content || '');
                 setIsOwner(data.owner_id === session.user.id);
             }
         };
@@ -227,8 +219,18 @@ function MeetingRoom({ sessionId, session, userInfo }) {
     };
 
     const handleStartRecording = async () => {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showNotification("La grabación de audio no es soportada.", "error"); return; }
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            showNotification("La transcripción no es soportada en este navegador.", "error");
+            return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { 
+            showNotification("La grabación de audio no es soportada.", "error"); 
+            return; 
+        }
+
         try {
+            // Start audio recording
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             setIsRecording(true);
             audioChunksRef.current = [];
@@ -240,10 +242,46 @@ function MeetingRoom({ sessionId, session, userInfo }) {
                 stream.getTracks().forEach(track => track.stop());
             };
             mediaRecorderRef.current.start();
-        } catch (err) { showNotification("No se pudo acceder al micrófono.", "error"); }
+
+            // Start speech recognition
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = true;
+            recognitionRef.current.interimResults = false;
+            recognitionRef.current.lang = 'es-MX';
+
+            recognitionRef.current.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                }
+                if (transcript) {
+                     setContent(prevContent => {
+                        const newContent = (prevContent ? prevContent.trim() + '\n\n' : '') + transcript.trim() + '.';
+                        handleContentChange(newContent); // Sync with supabase
+                        return newContent;
+                    });
+                }
+            };
+            
+            recognitionRef.current.onerror = (event) => {
+                console.error("Speech recognition error", event.error);
+                showNotification(`Error de transcripción: ${event.error}`, "error");
+            };
+
+            recognitionRef.current.start();
+
+        } catch (err) { 
+            showNotification("No se pudo acceder al micrófono.", "error"); 
+        }
     };
 
-    const handleStopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
+    const handleStopRecording = () => { 
+        if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); }
+        if (recognitionRef.current) { recognitionRef.current.stop(); }
+        setIsRecording(false); 
+    };
 
     return (
         <div className="container mx-auto p-4 md:p-6">
@@ -252,7 +290,7 @@ function MeetingRoom({ sessionId, session, userInfo }) {
             <header className="bg-white rounded-xl shadow-md p-4 flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-blue-600 flex items-center gap-3"><i className="fas fa-users"></i> Minutería Colaborativa</h1>
                 <div className="flex items-center gap-3">
-                     {isOwner && <button onClick={isRecording ? handleStopRecording : handleStartRecording} className={`flex items-center gap-2 text-white font-bold py-2 px-4 rounded-lg transition-all ${isRecording ? 'bg-red-500 recording-pulse' : 'bg-gray-700 hover:bg-gray-800'}`}><i className={`fas ${isRecording ? 'fa-stop-circle' : 'fa-microphone'}`}></i>{isRecording ? 'Detener' : 'Grabar'}</button>}
+                     {isOwner && <button onClick={isRecording ? handleStopRecording : handleStartRecording} className={`flex items-center gap-2 text-white font-bold py-2 px-4 rounded-lg transition-all ${isRecording ? 'bg-red-500 recording-pulse' : 'bg-gray-700 hover:bg-gray-800'}`}><i className={`fas ${isRecording ? 'fa-stop-circle' : 'fa-microphone'}`}></i>{isRecording ? 'Detener' : 'Grabar y Transcribir'}</button>}
                      {isOwner && <button onClick={() => setShowQRModal(true)} className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg"><i className="fas fa-qrcode"></i>Invitar</button>}
                     <span className="text-sm text-slate-600 hidden sm:inline">Online:</span>
                     <div className="flex -space-x-2">{Object.entries(users).map(([key, u]) => (u && u.name && <div key={key} className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white font-bold" style={{ backgroundColor: u.color }} title={u.name}>{u.name.charAt(0)}</div>))}</div>
@@ -347,6 +385,11 @@ function App() {
             setSessionId(sessionParam);
         }
     }, []);
+    
+    // Make body visible after app mounts to prevent code flash
+    useEffect(() => {
+        document.body.classList.add('loaded');
+    }, []);
 
     const handleSetUserInfo = (name, color) => {
         const info = { name, color };
@@ -408,4 +451,3 @@ function App() {
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 root.render(<App />);
-

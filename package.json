@@ -1,0 +1,18 @@
+{
+  "name": "minuteria-colaborativa",
+  "version": "1.0.0",
+  "description": "Aplicación de minutería colaborativa con transcripción de voz",
+  "main": "app-compiled.js",
+  "scripts": {
+    "build": "babel app.js --out-file app-compiled.js --presets=@babel/preset-react",
+    "predeploy": "npm run build"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.22.0",
+    "@babel/core": "^7.22.0",
+    "@babel/preset-react": "^7.22.0"
+  },
+  "keywords": ["minuteria", "colaborativa", "transcripcion", "react"],
+  "author": "Tu nombre",
+  "license": "MIT"
+}

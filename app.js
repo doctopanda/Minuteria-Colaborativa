@@ -404,20 +404,36 @@ function MeetingRoom({ sessionId, session, userInfo }) {
             
             let finalTranscript = '';
             recognitionRef.current.onresult = (event) => {
-                let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
-                }
-                // Use broadcast for real-time feel
-                if (channelRef.current) {
-                    channelRef.current.send({ type: 'broadcast', event: 'transcription', payload: { transcript: finalTranscript } });
-                }
-                finalTranscript = ''; // Reset after sending
-            };
+    let interimTranscript = '';
+    let finalTranscript = '';
+    
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+        } else {
+            interimTranscript += event.results[i][0].transcript;
+        }
+    }
+
+    // Actualizar el estado local del host inmediatamente
+    if (finalTranscript) {
+        setContent(prev => prev + finalTranscript);
+        
+        // Guardar en la base de datos si es el host
+        if (isOwner) {
+            handleContentChange(content + finalTranscript);
+        }
+        
+        // Enviar a otros participantes
+        if (channelRef.current) {
+            channelRef.current.send({ 
+                type: 'broadcast', 
+                event: 'transcription', 
+                payload: { transcript: finalTranscript } 
+            });
+        }
+    }
+};
             
             recognitionRef.current.onend = () => {
                 // Save final content to DB when recognition stops
